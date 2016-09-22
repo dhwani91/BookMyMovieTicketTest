@@ -17,7 +17,7 @@ import org.junit.Test;
 
 public class TestTheaterResource {
 	private static final String HTTP_HOST = "http://localhost:8080";
-	private static final String URI_PATH = "MovieService/rest/theaters";
+	private static final String URI_PATH = "/MovieService/rest/theaters";
 	
 	private Client client = ClientBuilder.newClient();
 	private WebTarget target;
@@ -28,95 +28,100 @@ public class TestTheaterResource {
 	}
 
 	@Test
-	public void testGetUsersNoParamsJson(){						
-		Response response =	target.request().accept(MediaType.APPLICATION_JSON).get();
+	public void testTheaterCRUD() {
+		// create Theater
+		HttpTheater theater = new HttpTheater();
+		theater.setTheaterName("citygold" + new Random().nextInt(99999));
+		theater.setStreet( new Random().nextInt(99999)+ "blvd");
+		theater.setCity("sanjose"+ new Random().nextInt(99999));
+		theater.setState("california");
+		theater.setZipcode(new Random().nextInt(99999));
+		HttpTheater createResponse = target.request().accept(MediaType.APPLICATION_JSON).post(Entity.entity(theater, MediaType.APPLICATION_JSON), HttpTheater.class);
+		Assert.assertNotNull(createResponse);
+		Assert.assertNotNull(createResponse.getTheaterId());
+		Assert.assertEquals(createResponse.getTheaterName(), theater.getTheaterName());
+		Assert.assertEquals(createResponse.getStreet(), theater.getStreet());
+		Assert.assertEquals(createResponse.getCity(), theater.getCity());
+		Assert.assertEquals(createResponse.getState(), theater.getState());
+		Assert.assertEquals(createResponse.getZipcode(), theater.getZipcode());
 
-		//you can use this to print the response
-		//System.out.println("HTTP Status=" + response.getStatus());
-		//NOTE - you can read the entity ONLY once
-		//System.out.println(response.readEntity(String.class));
-				
-		verifyMissing(response);
-	}
-	
+		// search for just created movie
+		List<HttpTheater> search = target.queryParam("zipcode", createResponse.getZipcode()).request().accept(MediaType.APPLICATION_JSON)
+				.get(new GenericType<List<HttpTheater>>() {
+				});
+		Assert.assertNotNull(search);
+		HttpTheater searchTheater = search.get(0);
+		Assert.assertEquals(searchTheater, createResponse);
 
-	private void verifyMissing(Response response) {
+		// update movie  name
+		final String theaterId = Long.toString(searchTheater.getTheaterId());
+		final String theaterName = "cityGold" + new Random().nextInt(99999);
+		searchTheater.setTheaterName(theaterName);
+		Response updateResponse = target.path(theaterId).request().accept(MediaType.APPLICATION_JSON)
+				.put(Entity.entity(searchTheater, MediaType.APPLICATION_JSON));
+		Assert.assertNotNull(updateResponse);
+		Assert.assertEquals(updateResponse.getStatus(), 204);
+
+		// get movie by id
+		// search for just created user
+		HttpTheater getResponse = target.path(theaterId).request().accept(MediaType.APPLICATION_JSON).get(HttpTheater.class);
+		Assert.assertNotNull(getResponse);
+		
+		Assert.assertNotNull(getResponse.getTheaterId());
+//		Assert.assertEquals(getResponse.getTheaterName(),createResponse.getTheaterName());
+		Assert.assertEquals(getResponse.getTheaterId(), createResponse.getTheaterId());
+		Assert.assertEquals(getResponse.getStreet(), createResponse.getStreet());
+		Assert.assertEquals(getResponse.getCity(), createResponse.getCity());
+		Assert.assertEquals(getResponse.getState(), createResponse.getState());
+		Assert.assertEquals(getResponse.getState(), createResponse.getState());
+		
+
+		// delete movie
+		Response deleteResponse = target.path(theaterId).request().accept(MediaType.APPLICATION_JSON).delete();
+		Assert.assertNotNull(deleteResponse);
+		Assert.assertNotEquals(deleteResponse.getStatus(), 200);
+
+		// get movie
+		Response response = target.path(theaterId).request().accept(MediaType.APPLICATION_JSON).get();
 		HttpError error = response.readEntity(HttpError.class);
-		Assert.assertEquals(409, response.getStatus());
-		Assert.assertEquals(409, error.status);
-		Assert.assertEquals(500, response.getStatus());
-		Assert.assertEquals(500, error.status);
-		Assert.assertEquals("MISSING_DATA", error.code);
-		Assert.assertEquals("no search parameter provided", error.message);
-		Assert.assertEquals("", error.debug);		
+		Assert.assertNotNull(error);
+		Assert.assertEquals(error.getStatus(), 409);
+		Assert.assertEquals(error.getCode(), "MISSING_DATA");
+		Assert.assertEquals(error.getMessage(), "Theater not found");
+
 	}
-	
 	@Test
-	public void testCreateUsersNoParamsXml(){					
-		Response response =	target.request().accept(MediaType.APPLICATION_XML).post(Entity.entity("<theaters/>", MediaType.APPLICATION_XML));
-		
-		verifyInvalid(response);
-	}
-	
-	@Test
-	public void testCreateUsersNoParamsEntityXml(){					
-		HttpMovie movieToSend = new HttpMovie();		
-		Response response =	target.request().accept(MediaType.APPLICATION_XML).post(Entity.entity(movieToSend, MediaType.APPLICATION_XML));
-		
-		verifyInvalid(response);
-	}
-	
-	@Test
-	public void testCreateUsersNoParamsJson(){					
-		Response response =	target.request().accept(MediaType.APPLICATION_JSON).post(Entity.entity("{theaters:{}}", MediaType.APPLICATION_JSON));
-		
-		verifyInvalid(response);
-	}
-	
-	@Test
-	public void testCreateUsersNoParamsEntityJson(){					
-		HttpUser userToSend = new HttpUser();		
-		Response response =	target.request().accept(MediaType.APPLICATION_JSON).post(Entity.entity(userToSend, MediaType.APPLICATION_JSON));
-		
-		verifyInvalid(response);
+	public void testGetUserNotExist() {
+		String theaterId = Integer.toString(new Random().nextInt(99999));
+		Response response = target.path(theaterId).request().accept(MediaType.APPLICATION_JSON).get();
+		HttpError error = response.readEntity(HttpError.class);
+		Assert.assertNotNull(error);
+		Assert.assertEquals(error.getStatus(), 409);
+		Assert.assertEquals(error.getCode(), "MISSING_DATA");
+		Assert.assertEquals(error.getMessage(), "Theater not found");
+
 	}
 
-	private void verifyInvalid(Response response) {
-		HttpError error = response.readEntity(HttpError.class);
-		Assert.assertEquals(409, response.getStatus());
-		Assert.assertEquals(409, error.status);
-		Assert.assertEquals("INVALID_FIELD", error.code);
-		Assert.assertEquals("theater name requiered", error.message);
-		Assert.assertEquals("", error.debug);		
-	}
-	
 	@Test
-	public void testCreateAndGettheater(){					
-		HttpTheater theaterToSend = new HttpTheater();
-		theaterToSend.theaterName="hello"+new Random().nextInt(99999);
-		theaterToSend.Street="Greek"+new Random().nextInt(99999)+"blvd";
-		theaterToSend.city="sanjose";
-		theaterToSend.state="california";
-		theaterToSend.zipcode=new Random().nextInt(99999);
-		
-		Response response =	target.request().accept(MediaType.APPLICATION_JSON).post(Entity.entity(theaterToSend, MediaType.APPLICATION_JSON));
-		
-		HttpTheater createResponse = response.readEntity(HttpTheater.class);
-		//System.err.println(createResponse);
-		Assert.assertEquals(201, response.getStatus());
-		Assert.assertEquals(createResponse.theaterName, theaterToSend.theaterName);
-		Assert.assertEquals(createResponse.city, theaterToSend.city);
-		Assert.assertEquals(createResponse.state, theaterToSend.state);
-		Assert.assertEquals(createResponse.zipcode, theaterToSend.zipcode);
-		Assert.assertNotNull(createResponse.zipcode);
-		Assert.assertNotNull(createResponse.theaterName);
-		Assert.assertNotNull(createResponse.city);
-		Assert.assertNotNull(createResponse.state);
-		
-		//search for just created user		
-//		Response search = target.queryParam("firstName", userToSend.firstName).request().accept(MediaType.APPLICATION_JSON).get();
-//		List<HttpUser> searchResponse = search.readEntity(new GenericType<List<HttpUser>>(){});
-//		Assert.assertEquals(searchResponse.get(0), createResponse);		
+	public void testDeleteMovieNotExist() {
+		String theaterId = Integer.toString(new Random().nextInt(99999));
+		Response response = target.path(theaterId).request().accept(MediaType.APPLICATION_JSON).delete();
+		HttpError error = response.readEntity(HttpError.class);
+		Assert.assertNotNull(error);
+		Assert.assertEquals(error.getStatus(), 409);
+		Assert.assertEquals(error.getCode(), "MISSING_DATA");
+		Assert.assertEquals(error.getMessage(), "Theater is not Exist");
+	}
+
+	@Test
+	public void testUpdateMovieNotExist() {
+		String theaterId = Integer.toString(new Random().nextInt(99999));
+		Response response = target.path(theaterId).request().accept(MediaType.APPLICATION_JSON).get();
+		HttpError error = response.readEntity(HttpError.class);
+		Assert.assertNotNull(error);
+		Assert.assertEquals(error.getStatus(), 409);
+		Assert.assertEquals(error.getCode(), "MISSING_DATA");
+		Assert.assertEquals(error.getMessage(), "Theater not found");
 	}
 	
 }

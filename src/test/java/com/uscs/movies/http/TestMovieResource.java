@@ -2,6 +2,7 @@ package com.uscs.movies.http;
 
 import java.util.List;
 import java.util.Random;
+import java.util.UUID;
 
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
@@ -17,108 +18,110 @@ import org.junit.Test;
 
 public class TestMovieResource {
 	private static final String HTTP_HOST = "http://localhost:8080";
-	private static final String URI_PATH = "MovieService/rest/movies";
-	
+	private static final String URI_PATH = "/MovieService/rest/movies";
+
 	private Client client = ClientBuilder.newClient();
 	private WebTarget target;
-	
+
 	@Before
-	public void init(){
+	public void init() {
 		target = client.target(HTTP_HOST).path(URI_PATH);
 	}
 
 	@Test
-	public void testGetUsersNoParamsJson(){						
-		Response response =	target.request().accept(MediaType.APPLICATION_JSON).get();
+	public void testUserCRUD() {
 
-		//you can use this to print the response
-		//System.out.println("HTTP Status=" + response.getStatus());
-		//NOTE - you can read the entity ONLY once
-		//System.out.println(response.readEntity(String.class));
-				
-		verifyMissing(response);
-	}
-	
-//	@Test
-//	public void testGetUsersNoParamsXml(){						
-//		Response response =	target.request().accept(MediaType.APPLICATION_XML).get();
-//		
-//		verifyMissing(response);
-//	}
+		// create movie
+		HttpMovie movie = new HttpMovie();
+		movie.setMovieName("supeman" + new Random().nextInt(99999));
+		movie.setMovieType("drama"+  new Random().nextInt(99999));
+		movie.setMovieDesc("It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged");
 
-	private void verifyMissing(Response response) {
+		HttpMovie createResponse = target.request().accept(MediaType.APPLICATION_JSON)
+				.post(Entity.entity(movie, MediaType.APPLICATION_JSON), HttpMovie.class);
+		Assert.assertNotNull(createResponse);
+		Assert.assertNotNull(createResponse.getMovieId());
+		Assert.assertEquals(createResponse.getMovieName(), movie.getMovieName());
+		Assert.assertEquals(createResponse.getMovieDesc(), movie.getMovieDesc());
+		Assert.assertEquals(createResponse.getMovieType(), movie.getMovieType());
+		
+
+		// search for just created movie
+		List<HttpMovie> search = target.queryParam("movieType", createResponse.getMovieType()).request().accept(MediaType.APPLICATION_JSON)
+				.get(new GenericType<List<HttpMovie>>() {
+				});
+		Assert.assertNotNull(search);
+		HttpMovie searchMovie = search.get(0);
+		Assert.assertEquals(searchMovie, createResponse);
+
+		// update movie  name
+		final String movieId = Integer.toString(searchMovie.getMovieId());
+		final String movieName = "superman" + new Random().nextInt(99999);
+		searchMovie.setMovieName(movieName);
+		Response updateResponse = target.path(movieId).request().accept(MediaType.APPLICATION_JSON)
+				.put(Entity.entity(searchMovie, MediaType.APPLICATION_JSON));
+		Assert.assertNotNull(updateResponse);
+		Assert.assertEquals(updateResponse.getStatus(), 204);
+
+		// get movie by id
+		// search for just created user
+		HttpMovie getResponse = target.path(movieId).request().accept(MediaType.APPLICATION_JSON).get(HttpMovie.class);
+		Assert.assertNotNull(getResponse);
+		
+		Assert.assertNotNull(getResponse.getMovieId());
+		Assert.assertEquals(getResponse.getMovieId(), createResponse.getMovieId());
+		Assert.assertEquals(getResponse.getMovieType(), createResponse.getMovieType());
+		Assert.assertEquals(getResponse.getMovieDesc(), createResponse.getMovieDesc());
+		Assert.assertNotEquals(getResponse.getMovieName(),createResponse.getMovieName());
+		
+
+		// delete movie
+		Response deleteResponse = target.path(movieId).request().accept(MediaType.APPLICATION_JSON).delete();
+		Assert.assertNotNull(deleteResponse);
+		Assert.assertNotEquals(deleteResponse.getStatus(), 200);
+
+		// get movie
+		Response response = target.path(movieId).request().accept(MediaType.APPLICATION_JSON).get();
 		HttpError error = response.readEntity(HttpError.class);
-		Assert.assertEquals(409, response.getStatus());
-		Assert.assertEquals(409, error.status);
-		Assert.assertEquals(500, response.getStatus());
-		Assert.assertEquals(500, error.status);
-		Assert.assertEquals("MISSING_DATA", error.code);
-		Assert.assertEquals("no search parameter provided", error.message);
-		Assert.assertEquals("", error.debug);		
+		Assert.assertNotNull(error);
+		Assert.assertEquals(error.getStatus(), 409);
+		Assert.assertEquals(error.getCode(), "MISSING_DATA");
+		Assert.assertEquals(error.getMessage(), "Movie not found");
+
 	}
-	
 	@Test
-	public void testCreateUsersNoParamsXml(){					
-		Response response =	target.request().accept(MediaType.APPLICATION_XML).post(Entity.entity("<movies/>", MediaType.APPLICATION_XML));
-		
-		verifyInvalid(response);
-	}
-	
-	@Test
-	public void testCreateUsersNoParamsEntityXml(){					
-		HttpUser userToSend = new HttpUser();		
-		Response response =	target.request().accept(MediaType.APPLICATION_XML).post(Entity.entity(userToSend, MediaType.APPLICATION_XML));
-		
-		verifyInvalid(response);
-	}
-	
-	@Test
-	public void testCreateUsersNoParamsJson(){					
-		Response response =	target.request().accept(MediaType.APPLICATION_JSON).post(Entity.entity("{movies:{}}", MediaType.APPLICATION_JSON));
-		
-		verifyInvalid(response);
-	}
-	
-	@Test
-	public void testCreateUsersNoParamsEntityJson(){					
-		HttpMovie movieToSend = new HttpMovie();		
-		Response response =	target.request().accept(MediaType.APPLICATION_JSON).post(Entity.entity(movieToSend, MediaType.APPLICATION_JSON));
-		
-		verifyInvalid(response);
+	public void testGetUserNotExist() {
+		String movieId = Integer.toString(new Random().nextInt(99999));
+		Response response = target.path(movieId).request().accept(MediaType.APPLICATION_JSON).get();
+		HttpError error = response.readEntity(HttpError.class);
+		Assert.assertNotNull(error);
+		Assert.assertEquals(error.getStatus(), 409);
+		Assert.assertEquals(error.getCode(), "MISSING_DATA");
+		Assert.assertEquals(error.getMessage(), "Movie not found");
+
 	}
 
-	private void verifyInvalid(Response response) {
-		HttpError error = response.readEntity(HttpError.class);
-		Assert.assertEquals(409, response.getStatus());
-		Assert.assertEquals(409, error.status);
-		Assert.assertEquals("INVALID_FIELD", error.code);
-		Assert.assertEquals("movie name is required", error.message);
-		Assert.assertEquals("", error.debug);		
-	}
-	
 	@Test
-	public void testCreateAndGetMovie(){					
-		HttpMovie movieToSend = new HttpMovie();
-		movieToSend.movieName="spiderman"+new Random().nextInt(99999);
-		movieToSend.movieType="comedy";
-		movieToSend.movieDesc="action and comedy";
-		
-		
-		Response response =	target.request().accept(MediaType.APPLICATION_JSON).post(Entity.entity(movieToSend, MediaType.APPLICATION_JSON));
-		
-		HttpMovie createResponse = response.readEntity(HttpMovie.class);
-		//System.err.println(createResponse);
-		Assert.assertEquals(201, response.getStatus());
-		Assert.assertEquals(createResponse.movieName, movieToSend.movieName);
-		Assert.assertEquals(createResponse.movieDesc, movieToSend.movieDesc);
-		Assert.assertEquals(createResponse.movieType, movieToSend.movieType);
-		Assert.assertNotNull(createResponse.movieId);
-		Assert.assertNull(createResponse.movieName);
-		
-		//search for just created user		
-		Response search = target.queryParam("movieType", movieToSend.movieType).request().accept(MediaType.APPLICATION_JSON).get();
-		List<HttpMovie> searchResponse = search.readEntity(new GenericType<List<HttpMovie>>(){});
-		Assert.assertEquals(searchResponse.get(0), createResponse);		
+	public void testDeleteMovieNotExist() {
+		String movieId = Integer.toString(new Random().nextInt(99999));
+		Response response = target.path(movieId).request().accept(MediaType.APPLICATION_JSON).delete();
+		HttpError error = response.readEntity(HttpError.class);
+		Assert.assertNotNull(error);
+		Assert.assertEquals(error.getStatus(), 409);
+		Assert.assertEquals(error.getCode(), "MISSING_DATA");
+		Assert.assertEquals(error.getMessage(), "Movie is not Exist");
+	}
+
+	@Test
+	public void testUpdateMovieNotExist() {
+		String movieId = Integer.toString(new Random().nextInt(99999));
+		Response response = target.path(movieId).request().accept(MediaType.APPLICATION_JSON).get();
+		HttpError error = response.readEntity(HttpError.class);
+		Assert.assertNotNull(error);
+		Assert.assertEquals(error.getStatus(), 409);
+		Assert.assertEquals(error.getCode(), "MISSING_DATA");
+		Assert.assertEquals(error.getMessage(), "Movie not found");
 	}
 	
+
 }

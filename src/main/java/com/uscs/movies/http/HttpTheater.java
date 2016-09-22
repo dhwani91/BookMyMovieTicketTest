@@ -1,34 +1,74 @@
 package com.uscs.movies.http;
 
 import javax.xml.bind.annotation.XmlElement;
-import javax.xml.bind.annotation.XmlElement;
 import javax.xml.bind.annotation.XmlRootElement;
-@XmlRootElement(name = "theater")
-public class HttpTheater {
-	@XmlElement
-	public int theaterId;
-	
-	@XmlElement
-	public String theaterName;
-	
-	@XmlElement
-	public String city;
-	
-	@XmlElement
-	public String state;
-	
-	@XmlElement
-	public String Street;
-	
-	@XmlElement
-	public int zipcode;
-	
 
+public class HttpTheater {
+
+	private int theaterId;
 	
+	private String street;
+
+	private String theaterName;
+
+	private String city;
+
+	private String state;
+
+	private int zipcode;
+
+	public void setTheaterId(int theaterId) {
+		this.theaterId = theaterId;
+	}
+
+	public int getTheaterId() {
+		return theaterId;
+	}
+
+	public void setTheaterName(String theaterName) {
+		this.theaterName = theaterName;
+	}
+
+	public String getTheaterName() {
+		return theaterName;
+	}
+
+	public void setStreet(String street) {
+		this.street = street;
+	}
+
+	public String getStreet() {
+		return street;
+	}
+
+	public void setCity(String city) {
+		this.city = city;
+	}
+
+	public String getCity() {
+		return city;
+	}
+
+	public void setState(String state) {
+		this.state = state;
+	}
+
+	public String getState() {
+		return state;
+	}
+
+	public void setZipcode(int zipcode) {
+		this.zipcode = zipcode;
+	}
+
+	public int getZipcode() {
+		return zipcode;
+	}
+
 	@Override
 	public String toString() {
-		return "HttpTheater [id=" + theaterId + ", theaterName=" + theaterName
-				+ ", city=" + city + ", zipcode=" + zipcode + "]";
+		return "HttpTheater [id=" + theaterId + ", theaterName=" + theaterName + ", city=" + city + ", zipcode="
+				+ zipcode + "]";
 	}
 
 	@Override
@@ -55,7 +95,7 @@ public class HttpTheater {
 		if (state == null) {
 			if (other.state != null)
 				return false;
-		} else if (! state.equals(other.state))
+		} else if (!state.equals(other.state))
 			return false;
 		return true;
 	}
